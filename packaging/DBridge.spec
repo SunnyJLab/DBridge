@@ -11,9 +11,16 @@ from pathlib import Path
 ROOT = Path(SPECPATH).parent
 
 # oracledb's thin driver is compiled (Cython). Modules imported from inside
-# those .pyd files are invisible to PyInstaller's static analysis, so list the
-# standard-library ones explicitly. cryptography has its own PyInstaller hook.
+# those .pyd files are invisible to PyInstaller's static analysis, so list them
+# explicitly: cryptography (thin-mode authentication, impl/thin/crypto.pyx; its
+# own PyInstaller hook then pulls in the native bindings) and the stdlib modules.
 ORACLEDB_RUNTIME_IMPORTS = [
+    "cryptography.x509",
+    "cryptography.hazmat.primitives.hashes",
+    "cryptography.hazmat.primitives.serialization",
+    "cryptography.hazmat.primitives.ciphers",
+    "cryptography.hazmat.primitives.asymmetric.padding",
+    "cryptography.hazmat.primitives.kdf.pbkdf2",
     "array",
     "asyncio",
     "base64",
