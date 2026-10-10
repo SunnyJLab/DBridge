@@ -326,7 +326,7 @@ class ToolModuleAssemblyTests(unittest.TestCase):
         for path in sorted(TOOLS_PACKAGE.glob("*.py")) + sorted(COMMON_PACKAGE.glob("*.py")):
             if path.name == "__init__.py":
                 continue
-            for node in ast.walk(ast.parse(path.read_text())):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
                 # context.database.X / context.catalog.X 또는 getattr(db, "X", ...)
                 target = attr = None
                 if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Attribute):

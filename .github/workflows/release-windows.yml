@@ -1,0 +1,163 @@
+name: Windows release
+
+# Tag push (v1.2.3): test, build the exe, smoke-test it, package the installer and
+# portable zip, and publish them to the GitHub release for that tag.
+# Pull requests touching the build and manual runs: same pipeline, artifacts only.
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "packaging/**"
+      - ".github/workflows/release-windows.yml"
+      - "requirements.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  PYINSTALLER_VERSION: "6.22.3"
+  INNO_SETUP_URL: https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe
+  INNO_SETUP_SHA256: 0362a383ed217d4c4239b5933866dd96d3eb2102737da92f80f6057a4b40df2f
+
+jobs:
+  build:
+    runs-on: windows-2025
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Resolve version
+        id: version
+        run: |
+          $source = Select-String -Path transport/dispatch.py -Pattern 'SERVER_INFO = \{"name": "dbridge", "version": "([^"]+)"\}'
+          if (-not $source) { throw "SERVER_INFO version not found in transport/dispatch.py" }
+          $version = $source.Matches[0].Groups[1].Value
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            $tag = $env:GITHUB_REF_NAME -replace '^v', ''
+            if ($tag -ne $version) { throw "Tag v$tag does not match SERVER_INFO version $version" }
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "DBridge $version"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt "pyinstaller==$env:PYINSTALLER_VERSION"
+          python -m pip freeze
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests
+
+      - name: Build exe (PyInstaller, one-folder)
+        run: pyinstaller --noconfirm --clean packaging/DBridge.spec
+
+      - name: Smoke test the exe
+        run: python packaging/smoke_test.py dist/DBridge
+
+      - name: Install Inno Setup
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup.exe"
+          Invoke-WebRequest -Uri $env:INNO_SETUP_URL -OutFile $installer
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $env:INNO_SETUP_SHA256) { throw "Inno Setup checksum mismatch: $hash" }
+          $dir = Join-Path $env:RUNNER_TEMP "inno"
+          Start-Process -FilePath $installer -Wait -ArgumentList @(
+            "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=`"$dir`""
+          )
+          if (-not (Test-Path (Join-Path $dir "ISCC.exe"))) { throw "ISCC.exe not found in $dir" }
+          $dir >> $env:GITHUB_PATH
+
+      - name: Build installer
+        run: iscc /Qp "/DAppVersion=${{ steps.version.outputs.version }}" packaging/DBridge.iss
+
+      - name: Test installer (silent install, launch, upgrade keeps config, uninstall)
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $setup = (Resolve-Path "dist/DBridge-$version-win-x64-setup.exe").Path
+          $app = Join-Path $env:LOCALAPPDATA "Programs\DBridge"
+          $log = Join-Path $env:RUNNER_TEMP "setup.log"
+          Start-Process $setup -Wait -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=`"$log`""
+          if (-not (Test-Path "$app\DBridge.exe")) { Get-Content $log -Tail 40; throw "DBridge.exe not installed to $app" }
+          $proc = Start-Process "$app\DBridge.exe" -PassThru
+          $deadline = (Get-Date).AddSeconds(60)
+          while (-not (Test-Path "$app\config.json") -and (Get-Date) -lt $deadline) { Start-Sleep 1 }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          if (-not (Test-Path "$app\config.json")) { throw "First run did not create config.json next to the exe" }
+          Start-Process $setup -Wait -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"
+          if (-not (Test-Path "$app\config.json")) { throw "Upgrade install removed config.json" }
+          $uninstaller = Get-ChildItem $app -Filter "unins*.exe" | Select-Object -First 1
+          Start-Process $uninstaller.FullName -Wait -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"
+          Start-Sleep 3
+          if (Test-Path "$app\DBridge.exe") { throw "Uninstall left DBridge.exe behind" }
+          if (-not (Test-Path "$app\config.json")) { throw "Uninstall removed config.json" }
+          Write-Host "installer ok: $app"
+
+      - name: Build portable zip and checksums
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          Copy-Item LICENSE dist/DBridge/
+          Compress-Archive -Path dist/DBridge -DestinationPath "dist/DBridge-$version-win-x64-portable.zip"
+          $assets = Get-ChildItem dist -File | Where-Object { $_.Name -like "DBridge-$version-*" }
+          $assets | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          } | Set-Content -Path dist/SHA256SUMS.txt -Encoding ascii
+          Get-Content dist/SHA256SUMS.txt
+          $assets | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: DBridge-${{ steps.version.outputs.version }}-win-x64
+          path: |
+            dist/DBridge-*-setup.exe
+            dist/DBridge-*-portable.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: DBridge-${{ needs.build.outputs.version }}-win-x64
+          path: dist
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          cat > notes.md <<EOF
+          ## Windows x64
+
+          | File | What it is |
+          | :--- | :--- |
+          | \`DBridge-${VERSION}-win-x64-setup.exe\` | Installer. Per-user install, no administrator rights. Start menu entry and uninstaller included |
+          | \`DBridge-${VERSION}-win-x64-portable.zip\` | Same build without an installer. Unzip anywhere writable and run \`DBridge.exe\` |
+          | \`SHA256SUMS.txt\` | SHA-256 checksums of the two files above |
+
+          Python is bundled, so the target PC needs no Python or Oracle Instant Client.
+          \`config.json\`, \`logs/\`, \`backup/\` and \`relationships.d/\` are written next to \`DBridge.exe\` and are kept on upgrade and uninstall.
+          The binaries are not code-signed, so Windows SmartScreen may warn on first run.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --title "DBridge $VERSION" --notes-file notes.md --generate-notes
+          fi
