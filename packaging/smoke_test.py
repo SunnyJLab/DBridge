@@ -56,6 +56,7 @@ def _wait_for(predicate, what: str):
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # log lines may be Korean
     build = Path(sys.argv[1]).resolve()
     work = Path(tempfile.mkdtemp(prefix="dbridge-smoke-")) / "DBridge"
     shutil.copytree(build, work)

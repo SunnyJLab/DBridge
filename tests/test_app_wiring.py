@@ -6,6 +6,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import os
 import queue
 import subprocess
 import sys
@@ -836,6 +837,18 @@ class UiDonePumpTests(unittest.TestCase):
             self.assertFalse(done2[0][0])
 
 
+def _run_tk_script(script: Path) -> subprocess.CompletedProcess:
+    # 시나리오가 한글을 출력하므로 콘솔 코드페이지(cp1252·cp949)와 무관하게 UTF-8로 주고받는다.
+    return subprocess.run(
+        [sys.executable, str(script)],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        timeout=180,
+    )
+
+
 @unittest.skipUnless(_tk_available(), "디스플레이가 없어 실Tk를 생성할 수 없다")
 class RealTkPumpTests(unittest.TestCase):
     """가짜 after()로는 잡아낼 수 없는 실Tk 쓰레드 드랍 버그를 mainloop로 재현한다."""
@@ -890,12 +903,7 @@ class RealTkUiScenarioTests(unittest.TestCase):
 
     def test_transient_labels_resolve_and_row_shows_reason(self) -> None:
         script = Path(__file__).resolve().parent / "_real_tk_ui_scenario.py"
-        completed = subprocess.run(
-            [sys.executable, str(script)],
-            capture_output=True,
-            text=True,
-            timeout=180,
-        )
+        completed = _run_tk_script(script)
         output = completed.stdout + completed.stderr
         if "TK_UNAVAILABLE" in output:
             self.skipTest("실Tk를 생성할 수 없는 환경이다")
@@ -927,9 +935,7 @@ class RealTkToolRunTests(unittest.TestCase):
 
     def test_tool_runs_and_renders_result(self) -> None:
         script = Path(__file__).resolve().parent / "_real_tk_tool_run.py"
-        completed = subprocess.run(
-            [sys.executable, str(script)], capture_output=True, text=True, timeout=180,
-        )
+        completed = _run_tk_script(script)
         output = completed.stdout + completed.stderr
         if "TK_UNAVAILABLE" in output:
             self.skipTest("실Tk를 생성할 수 없는 환경이다")
