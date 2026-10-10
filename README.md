@@ -65,7 +65,7 @@ Letting an AI agent query databases on an air-gapped network takes a connection 
 
 ## Quick start
 
-**Windows: install the release build.** Download one of these from [Releases](https://github.com/Sunny-J-Lab/DBridge/releases/latest). Python and Oracle Instant Client are bundled or unnecessary, so the target PC needs neither. For an air-gapped PC, carry the file in as-is.
+**Windows: install the release build.** Download one of these from [Releases](https://github.com/SunnyJLab/DBridge/releases/latest). Python and Oracle Instant Client are bundled or unnecessary, so the target PC needs neither. For an air-gapped PC, carry the file in as-is.
 
 | File | Use |
 | :--- | :--- |
@@ -90,7 +90,7 @@ The target production environment is Windows x64. Development and testing also w
 Windows (PowerShell):
 
 ```powershell
-git clone https://github.com/Sunny-J-Lab/DBridge.git
+git clone https://github.com/SunnyJLab/DBridge.git
 cd DBridge
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
@@ -99,7 +99,7 @@ python -m venv .venv
 macOS / Linux:
 
 ```sh
-git clone https://github.com/Sunny-J-Lab/DBridge.git
+git clone https://github.com/SunnyJLab/DBridge.git
 cd DBridge
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
@@ -237,7 +237,7 @@ Files to transfer (measured on Windows x64, Python 3.11)
 
 ### 2. Building the exe (PyInstaller)
 
-The [release](https://github.com/Sunny-J-Lab/DBridge/releases) installer and portable zip are built by `.github/workflows/release-windows.yml` on a Windows x64 runner with Python 3.11. Pushing a `v<version>` tag that matches `SERVER_INFO` in `transport/dispatch.py` runs the unit tests, builds the exe, smoke-tests it, packages it, and publishes the release.
+The [release](https://github.com/SunnyJLab/DBridge/releases) installer and portable zip are built by `.github/workflows/release-windows.yml` on a Windows x64 runner with Python 3.11. Pushing a `v<version>` tag that matches `SERVER_INFO` in `transport/dispatch.py` runs the unit tests, builds the exe, smoke-tests it, packages it, and publishes the release.
 
 To build it yourself, use the same Windows x64 + Python 3.11 environment as the target (PyInstaller does not cross-build). If the build PC is inside the air-gapped network, bring in the `pyinstaller` wheel the same way as above.
 

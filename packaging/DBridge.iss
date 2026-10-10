@@ -12,7 +12,7 @@
 
 #define AppName "DBridge"
 #define AppExe "DBridge.exe"
-#define AppUrl "https://github.com/Sunny-J-Lab/DBridge"
+#define AppUrl "https://github.com/SunnyJLab/DBridge"
 
 [Setup]
 AppId={{CD72A8E4-38D2-483D-83DF-87CA6B83F8C7}
