@@ -7,14 +7,15 @@
 </p>
 
 <p align="center">
-  <strong>Read-only Oracle MCP proxy built for air-gapped networks</strong>
+  <strong>Give Claude your Oracle database, with least privilege</strong>
   <br/>
-  <sub>AI agents such as Claude Code explore and query an Oracle database through a local proxy on the PC. The proxy listens only on <code>127.0.0.1</code>, and user SQL is limited to a single <code>SELECT</code> or <code>WITH</code> statement.</sub>
+  <sub>An MCP server that connects Claude Code to Oracle on a corporate security network. Claude gets only the least privilege it needs to read. It listens only on <code>127.0.0.1</code>, user SQL is limited to a single <code>SELECT</code> or <code>WITH</code> statement, and the one write path stays off until you turn it on.</sub>
 </p>
 
 <p align="center">
   <img alt="Listens on 127.0.0.1 only" src="https://img.shields.io/badge/bind-127.0.0.1%20only-0B7285?style=flat-square">
   <img alt="Python 3.11" src="https://img.shields.io/badge/python-3.11-3776AB?style=flat-square&logo=python&logoColor=white">
+  <img alt="MCP server for Claude Code" src="https://img.shields.io/badge/MCP%20server%20for-Claude%20Code-D97757?style=flat-square">
   <img alt="MCP Streamable HTTP, protocol 2025-03-26" src="https://img.shields.io/badge/MCP-Streamable%20HTTP%202025--03--26-555?style=flat-square">
   <img alt="Oracle via python-oracledb thin" src="https://img.shields.io/badge/oracle-oracledb%20thin-C74634?style=flat-square">
   <img alt="Status: beta" src="https://img.shields.io/badge/status-beta-orange?style=flat-square">
@@ -34,7 +35,7 @@
   <a href="#contributing">Contributing</a>
 </p>
 
-Letting an AI agent query databases on an air-gapped network takes a connection point that runs locally with no external service, blocks writes, and never hands the password to the agent. DBridge is a resident MCP server built around those requirements. The proxy itself needs no internet access. The agent's LLM, however, is reached through the MCP client, so an offline network still needs an LLM endpoint reachable from inside it.
+Letting Claude read the database on a corporate security network takes a connection point that runs locally with no external service, blocks writes, and never hands the password to Claude. DBridge is a resident MCP server built around those requirements. DBridge itself needs no internet access and talks only to Claude Code on this PC and to your Oracle database. Claude Code reaches Claude through the route your company allows: the Anthropic API directly, or an approved gateway on a closed network.
 
 - **How it connects**: It runs in the background on your PC and serves an [MCP](https://modelcontextprotocol.io/) Streamable HTTP endpoint at `http://127.0.0.1:8811/mcp`. Registering it in Claude Code takes one URL. The code enforces `127.0.0.1` as the only allowed bind address.
 - **Read-only**: SQL sent by the agent runs only as a single `SELECT` or `WITH` statement that has passed the proxy's SQL validation layer. Row counts and execution time are capped.
@@ -712,7 +713,7 @@ The Sun Valley ttk theme included in `theme_sv/` is licensed under the MIT licen
 ---
 
 <p align="center">
-  <em>Read-only Oracle MCP proxy built for air-gapped networks</em>
+  <em>Give Claude your Oracle database, with least privilege</em>
   <br/>
-  <sub>On your PC. Read-only. Only what you need.</sub>
+  <sub>Let Claude read Oracle. Writes stay off.</sub>
 </p>

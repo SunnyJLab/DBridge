@@ -7,14 +7,15 @@
 </p>
 
 <p align="center">
-  <strong>폐쇄망을 전제로 만든 Oracle 조회 전용 MCP 프록시</strong>
+  <strong>보안망의 Oracle을 Claude에게, 최소 권한으로</strong>
   <br/>
-  <sub>Claude Code 같은 AI 에이전트가 PC 안의 로컬 프록시를 거쳐 Oracle DB를 탐색·조회합니다. 프록시는 <code>127.0.0.1</code>에만 열리고, 사용자 SQL은 단일 <code>SELECT</code>/<code>WITH</code>만 다룹니다.</sub>
+  <sub>기업 보안망에서 Claude Code를 Oracle에 연결하는 MCP 서버입니다. Claude에게는 조회에 필요한 최소 권한만 줍니다. <code>127.0.0.1</code>에만 열리고, 사용자 SQL은 단일 <code>SELECT</code>/<code>WITH</code>만 다루며, 예외적인 쓰기 기능 하나도 직접 켜기 전까지는 꺼져 있습니다.</sub>
 </p>
 
 <p align="center">
   <img alt="Listens on 127.0.0.1 only" src="https://img.shields.io/badge/bind-127.0.0.1%20only-0B7285?style=flat-square">
   <img alt="Python 3.11" src="https://img.shields.io/badge/python-3.11-3776AB?style=flat-square&logo=python&logoColor=white">
+  <img alt="MCP server for Claude Code" src="https://img.shields.io/badge/MCP%20server%20for-Claude%20Code-D97757?style=flat-square">
   <img alt="MCP Streamable HTTP, protocol 2025-03-26" src="https://img.shields.io/badge/MCP-Streamable%20HTTP%202025--03--26-555?style=flat-square">
   <img alt="Oracle via python-oracledb thin" src="https://img.shields.io/badge/oracle-oracledb%20thin-C74634?style=flat-square">
   <img alt="Status: beta" src="https://img.shields.io/badge/status-beta-orange?style=flat-square">
@@ -34,7 +35,7 @@
   <a href="#기여하기">기여</a>
 </p>
 
-인터넷이 막힌 폐쇄망에서 AI 에이전트에게 DB 조회를 맡기려면, 외부 서비스 없이 PC 안에서 돌고, 쓰기를 막고, 비밀번호를 에이전트에게 넘기지 않는 연결 지점이 필요합니다. DBridge는 이 조건을 전제로 만든 상주형 MCP 서버입니다. 프록시 자체는 인터넷이 필요 없습니다. 다만 에이전트가 쓰는 LLM은 MCP 클라이언트가 연결하므로, 인터넷이 없는 망에서는 망 안에서 닿을 수 있는 LLM 엔드포인트가 따로 있어야 합니다.
+기업 보안망에서 Claude에게 DB 조회를 맡기려면, 외부 서비스 없이 PC 안에서 돌고, 쓰기를 막고, 비밀번호를 Claude에게 넘기지 않는 연결 지점이 필요합니다. DBridge는 이 조건을 전제로 만든 상주형 MCP 서버입니다. DBridge 자체는 인터넷이 필요 없고, 이 PC의 Claude Code와 Oracle하고만 통신합니다. Claude Code는 회사가 허용한 경로로 Claude를 부릅니다. Anthropic API에 직접 붙거나, 폐쇄망이면 승인된 게이트웨이를 거칩니다.
 
 - **연결 방식**: PC에 상주하며 `http://127.0.0.1:8811/mcp`로 [MCP](https://modelcontextprotocol.io/) Streamable HTTP 엔드포인트를 엽니다. Claude Code에는 주소 한 줄로 등록합니다. 바인딩 주소는 `127.0.0.1`만 허용하도록 코드에서 강제합니다.
 - **읽기 전용**: 에이전트가 보내는 SQL은 프록시의 SQL 검증 계층을 통과한 단일 `SELECT`/`WITH` 문장만 실행합니다. 결과 행 수와 실행 시간에는 상한이 있습니다.
@@ -713,7 +714,7 @@ MIT. [LICENSE](LICENSE)를 참고하세요.
 ---
 
 <p align="center">
-  <em>폐쇄망을 전제로 만든 Oracle 조회 전용 MCP 프록시</em>
+  <em>보안망의 Oracle을 Claude에게, 최소 권한으로</em>
   <br/>
-  <sub>PC 안에서, 조회만, 필요한 만큼만.</sub>
+  <sub>Claude가 Oracle을 읽게 하세요. 쓰기는 꺼 둡니다.</sub>
 </p>
