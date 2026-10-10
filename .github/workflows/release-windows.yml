@@ -81,6 +81,28 @@ jobs:
       - name: Build installer
         run: iscc /Qp "/DAppVersion=${{ steps.version.outputs.version }}" packaging/DBridge.iss
 
+      - name: Test installer (silent install, launch, upgrade keeps config, uninstall)
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $setup = (Resolve-Path "dist/DBridge-$version-win-x64-setup.exe").Path
+          $app = Join-Path $env:LOCALAPPDATA "Programs\DBridge"
+          $log = Join-Path $env:RUNNER_TEMP "setup.log"
+          Start-Process $setup -Wait -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=`"$log`""
+          if (-not (Test-Path "$app\DBridge.exe")) { Get-Content $log -Tail 40; throw "DBridge.exe not installed to $app" }
+          $proc = Start-Process "$app\DBridge.exe" -PassThru
+          $deadline = (Get-Date).AddSeconds(60)
+          while (-not (Test-Path "$app\config.json") -and (Get-Date) -lt $deadline) { Start-Sleep 1 }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          if (-not (Test-Path "$app\config.json")) { throw "First run did not create config.json next to the exe" }
+          Start-Process $setup -Wait -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"
+          if (-not (Test-Path "$app\config.json")) { throw "Upgrade install removed config.json" }
+          $uninstaller = Get-ChildItem $app -Filter "unins*.exe" | Select-Object -First 1
+          Start-Process $uninstaller.FullName -Wait -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"
+          Start-Sleep 3
+          if (Test-Path "$app\DBridge.exe") { throw "Uninstall left DBridge.exe behind" }
+          if (-not (Test-Path "$app\config.json")) { throw "Uninstall removed config.json" }
+          Write-Host "installer ok: $app"
+
       - name: Build portable zip and checksums
         run: |
           $version = "${{ steps.version.outputs.version }}"
