@@ -65,7 +65,7 @@
 
 ## 빠른 시작
 
-**Windows: 릴리스 빌드 설치.** [Releases](https://github.com/bamtang/DBridge/releases/latest)에서 아래 중 하나를 받습니다. Python과 Oracle Instant Client는 번들에 들어 있거나 필요 없으므로 대상 PC에 따로 설치하지 않습니다. 폐쇄망 PC에는 파일을 그대로 반입하면 됩니다.
+**Windows: 릴리스 빌드 설치.** [Releases](https://github.com/SunnyJLab/DBridge/releases/latest)에서 아래 중 하나를 받습니다. Python과 Oracle Instant Client는 번들에 들어 있거나 필요 없으므로 대상 PC에 따로 설치하지 않습니다. 폐쇄망 PC에는 파일을 그대로 반입하면 됩니다.
 
 | 파일 | 용도 |
 | :--- | :--- |
@@ -90,7 +90,7 @@
 Windows (PowerShell):
 
 ```powershell
-git clone https://github.com/bamtang/DBridge.git
+git clone https://github.com/SunnyJLab/DBridge.git
 cd DBridge
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
@@ -99,7 +99,7 @@ python -m venv .venv
 macOS / Linux:
 
 ```sh
-git clone https://github.com/bamtang/DBridge.git
+git clone https://github.com/SunnyJLab/DBridge.git
 cd DBridge
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
@@ -237,7 +237,7 @@ python -m venv .venv
 
 ### 2. exe 빌드 (PyInstaller)
 
-[릴리스](https://github.com/bamtang/DBridge/releases)의 설치 파일과 포터블 zip은 `.github/workflows/release-windows.yml`이 Windows x64 러너 + Python 3.11에서 만듭니다. `transport/dispatch.py`의 `SERVER_INFO` 버전과 같은 `v<버전>` 태그를 push하면 단위 테스트, exe 빌드, 스모크 테스트, 패키징, 릴리스 게시까지 진행합니다.
+[릴리스](https://github.com/SunnyJLab/DBridge/releases)의 설치 파일과 포터블 zip은 `.github/workflows/release-windows.yml`이 Windows x64 러너 + Python 3.11에서 만듭니다. `transport/dispatch.py`의 `SERVER_INFO` 버전과 같은 `v<버전>` 태그를 push하면 단위 테스트, exe 빌드, 스모크 테스트, 패키징, 릴리스 게시까지 진행합니다.
 
 직접 빌드하려면 대상과 같은 **Windows x64 + Python 3.11 환경**을 씁니다(PyInstaller는 크로스 빌드를 하지 않음). 빌드 PC가 폐쇄망 안이라면 `pyinstaller` 휠도 위와 같은 방법으로 반입합니다.
 
