@@ -65,9 +65,16 @@ Letting an AI agent query databases on an air-gapped network takes a connection 
 
 ## Quick start
 
-These steps run DBridge directly from source. To transfer and deploy it to an air-gapped PC, see [Air-gapped deployment](#air-gapped-deployment).
+**Windows: install the release build.** Download one of these from [Releases](https://github.com/bamtang/DBridge/releases/latest). Python and Oracle Instant Client are bundled or unnecessary, so the target PC needs neither. For an air-gapped PC, carry the file in as-is.
 
-<!-- TODO: Once a release exe is published, add a "download the exe and run it" path in front of this section -->
+| File | Use |
+| :--- | :--- |
+| `DBridge-<version>-win-x64-setup.exe` | Installer. Per-user install to `%LOCALAPPDATA%\Programs\DBridge` without administrator rights, with a Start menu entry and an uninstaller |
+| `DBridge-<version>-win-x64-portable.zip` | Same build without an installer. Unzip into any writable folder and run `DBridge.exe` |
+
+The first run creates `config.json` next to `DBridge.exe`. Fill in your connection there (format in step 2 below) or in the admin UI, then continue from step 4, Connect to Claude Code. Check downloads against `SHA256SUMS.txt` in the release. The binaries are not code-signed, so Windows SmartScreen may warn on first run.
+
+The steps below run DBridge from source instead. To transfer and deploy the source to an air-gapped PC, see [Air-gapped deployment](#air-gapped-deployment).
 
 Requirements
 
@@ -230,22 +237,25 @@ Files to transfer (measured on Windows x64, Python 3.11)
 
 ### 2. Building the exe (PyInstaller)
 
-To avoid installing Python on production PCs, package it as a single windowed Windows exe. PyInstaller does not cross-build, so build on **the same Windows x64 + Python 3.11 environment as the target**. If the build PC is inside the air-gapped network, bring in the `pyinstaller` wheel the same way as above.
+The [release](https://github.com/bamtang/DBridge/releases) installer and portable zip are built by `.github/workflows/release-windows.yml` on a Windows x64 runner with Python 3.11. Pushing a `v<version>` tag that matches `SERVER_INFO` in `transport/dispatch.py` runs the unit tests, builds the exe, smoke-tests it, packages it, and publishes the release.
+
+To build it yourself, use the same Windows x64 + Python 3.11 environment as the target (PyInstaller does not cross-build). If the build PC is inside the air-gapped network, bring in the `pyinstaller` wheel the same way as above.
 
 ```powershell
 .venv\Scripts\pip install --no-index --find-links wheels pyinstaller
-.venv\Scripts\pyinstaller --onefile --noconsole --name DBridge app.py `
-  --add-data "theme_sv;theme_sv"
+.venv\Scripts\pyinstaller --noconfirm --clean packaging\DBridge.spec
+.venv\Scripts\python packaging\smoke_test.py dist\DBridge
+# optional, with Inno Setup installed: dist\DBridge-<version>-win-x64-setup.exe
+iscc /DAppVersion=0.3.0 packaging\DBridge.iss
 ```
 
-<!-- TODO: The command above is reconstructed from the code. The repo has no build script (.spec), so before release verify it with a real build and add a build script. There is also no icon (--icon) in the repo -->
+- `packaging/DBridge.spec` makes a one-folder windowed build in `dist\DBridge\` (`DBridge.exe` plus `_internal\`). It bundles `theme_sv/` and lists the modules that `oracledb` imports from compiled code, including `cryptography`, which PyInstaller cannot see on its own.
+- `packaging/smoke_test.py` starts the built exe against a closed port and checks MCP `initialize`, the tool count, and that the bundled thin driver was reached.
+- `packaging/DBridge.iss` is the Inno Setup script for the installer.
+- A windowed exe has no console, so startup failures are reported in a message box and in `logs/proxy.log`.
+- `config.json` is not bundled into the exe. The exe reads `config.json` in the same folder, and creates defaults if it is missing. `logs/`, `relationships.d/`, and settings backups (`backup/`) also live in the folder next to the exe, so that folder must be writable.
 
-- The entry point is `app.py`.
-- `--add-data "theme_sv;theme_sv"` is needed only when `ui.palette` is set to `sun`. Other palettes use only standard tkinter. PyInstaller includes Tcl/Tk automatically.
-- A `--noconsole` (windowed) exe has no console, so startup failures are reported in a message box and in `logs/proxy.log`.
-- `config.json` is not bundled into the exe. The exe reads `config.json` in the same folder, and creates defaults if it is missing. `logs/`, `relationships.d/`, and settings backups (`backup/`) also live in the folder next to the exe.
-
-The deliverable is the exe plus a `config.json` next to it (and, optionally, `relationships.d/`).
+The deliverable is the `dist\DBridge\` folder plus a `config.json` next to `DBridge.exe` (and, optionally, `relationships.d/`).
 
 ### 3. Network boundary
 
@@ -291,12 +301,12 @@ You can make the proxy start only while a named program, such as a DB access-con
 | Secrets | `password_env` (an environment variable) is recommended. A plaintext `password` is also allowed, and a password entered in the admin UI form is stored in plaintext in `config.json`. There is no application-level encryption |
 | Database write path | None by default. Only when `explain` is turned on: INSERT into the dedicated PLAN_TABLE you specify, then DELETE its own rows (see [Safeguards](#safeguards)) |
 | OS features used | Windows: DPI awareness (`shcore`/`user32`), switching an input field to the English IME (`imm32`), and clipboard copy (tkinter) |
-| Privileges | Administrator rights are not required. No service, registry, or auto-start registration |
+| Privileges | Administrator rights are not required. No service or auto-start registration. The installer only adds a per-user uninstall entry (HKCU) and a Start menu shortcut; the portable zip and source touch no registry |
 
 **Updates and removal**
 
-- There is no automatic update. For a new version, replace the source (or the exe) and keep `config.json` and `relationships.d/` in place.
-- To remove it, delete the program folder (including `config.json`, `logs/`, `backup/`, and `relationships.d/`). Remove the entry registered in the MCP client separately, for example with `claude mcp remove dbridge`.
+- There is no automatic update. For a new version, run the new installer over the old one, or replace the source (or the program folder). `config.json`, `logs/`, `backup/`, and `relationships.d/` are kept.
+- To remove it, uninstall from Windows Settings (installer) or delete the program folder. Uninstall leaves `config.json`, `logs/`, `backup/`, and `relationships.d/` in place; delete the folder to remove them. Remove the entry registered in the MCP client separately, for example with `claude mcp remove dbridge`.
 
 ### 6. Summary for DBA review
 

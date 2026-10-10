@@ -65,9 +65,16 @@
 
 ## 빠른 시작
 
-소스에서 바로 실행하는 순서입니다. 폐쇄망 PC에 반입·배포하는 방법은 [폐쇄망 배포](#폐쇄망-배포)를 보세요.
+**Windows: 릴리스 빌드 설치.** [Releases](https://github.com/bamtang/DBridge/releases/latest)에서 아래 중 하나를 받습니다. Python과 Oracle Instant Client는 번들에 들어 있거나 필요 없으므로 대상 PC에 따로 설치하지 않습니다. 폐쇄망 PC에는 파일을 그대로 반입하면 됩니다.
 
-<!-- TODO: 릴리스 exe를 공개하면 "exe 내려받아 실행" 경로를 이 섹션 앞에 추가 -->
+| 파일 | 용도 |
+| :--- | :--- |
+| `DBridge-<버전>-win-x64-setup.exe` | 설치 파일. 관리자 권한 없이 사용자별로 `%LOCALAPPDATA%\Programs\DBridge`에 설치하고, 시작 메뉴 항목과 제거 프로그램을 등록 |
+| `DBridge-<버전>-win-x64-portable.zip` | 설치 과정 없는 같은 빌드. 쓰기 가능한 폴더에 풀고 `DBridge.exe` 실행 |
+
+첫 실행 때 `DBridge.exe` 옆에 `config.json`이 생깁니다. 여기(형식은 아래 2단계)나 관리 UI에서 접속 정보를 채운 뒤 4단계 Claude Code에 연결부터 이어서 진행하세요. 받은 파일은 릴리스의 `SHA256SUMS.txt`로 확인할 수 있습니다. 코드 서명이 없어 첫 실행 때 Windows SmartScreen 경고가 뜰 수 있습니다.
+
+아래는 소스에서 바로 실행하는 순서입니다. 소스를 폐쇄망 PC에 반입·배포하는 방법은 [폐쇄망 배포](#폐쇄망-배포)를 보세요.
 
 필요한 것
 
@@ -230,22 +237,25 @@ python -m venv .venv
 
 ### 2. exe 빌드 (PyInstaller)
 
-운영 PC에 Python을 두지 않으려면 Windows용 windowed exe 하나로 묶어 배포합니다. PyInstaller는 크로스 빌드를 하지 않으므로 **대상과 같은 Windows x64 + Python 3.11 환경**에서 빌드합니다. 빌드 PC가 폐쇄망 안이라면 `pyinstaller` 휠도 위와 같은 방법으로 반입합니다.
+[릴리스](https://github.com/bamtang/DBridge/releases)의 설치 파일과 포터블 zip은 `.github/workflows/release-windows.yml`이 Windows x64 러너 + Python 3.11에서 만듭니다. `transport/dispatch.py`의 `SERVER_INFO` 버전과 같은 `v<버전>` 태그를 push하면 단위 테스트, exe 빌드, 스모크 테스트, 패키징, 릴리스 게시까지 진행합니다.
+
+직접 빌드하려면 대상과 같은 **Windows x64 + Python 3.11 환경**을 씁니다(PyInstaller는 크로스 빌드를 하지 않음). 빌드 PC가 폐쇄망 안이라면 `pyinstaller` 휠도 위와 같은 방법으로 반입합니다.
 
 ```powershell
 .venv\Scripts\pip install --no-index --find-links wheels pyinstaller
-.venv\Scripts\pyinstaller --onefile --noconsole --name DBridge app.py `
-  --add-data "theme_sv;theme_sv"
+.venv\Scripts\pyinstaller --noconfirm --clean packaging\DBridge.spec
+.venv\Scripts\python packaging\smoke_test.py dist\DBridge
+# 선택, Inno Setup 설치 시: dist\DBridge-<버전>-win-x64-setup.exe 생성
+iscc /DAppVersion=0.3.0 packaging\DBridge.iss
 ```
 
-<!-- TODO: 위 명령은 코드 기준으로 정리한 것. 레포에 빌드 스크립트(.spec)가 없으므로 공개 전 실제 빌드로 검증하고 build 스크립트 추가. 아이콘(--icon)도 레포에 없음 -->
+- `packaging/DBridge.spec`은 `dist\DBridge\`에 one-folder windowed 빌드(`DBridge.exe` + `_internal\`)를 만듭니다. `theme_sv/`를 포함하고, `oracledb`가 컴파일된 코드 안에서 import해 PyInstaller가 스스로 찾지 못하는 모듈(`cryptography` 포함)을 명시합니다.
+- `packaging/smoke_test.py`는 빌드된 exe를 닫힌 포트로 띄워 MCP `initialize`, 도구 수, 번들된 thin 드라이버 도달 여부를 확인합니다.
+- `packaging/DBridge.iss`는 설치 파일용 Inno Setup 스크립트입니다.
+- windowed exe에는 콘솔이 없으므로, 기동 실패 사유는 메시지 창과 `logs/proxy.log`로 남깁니다.
+- `config.json`은 exe에 넣지 않습니다. exe와 같은 폴더의 `config.json`을 읽고, 없으면 기본값으로 생성합니다. `logs/`, `relationships.d/`, 설정 백업(`backup/`)도 모두 exe 옆 폴더 기준이므로 그 폴더는 쓰기 가능해야 합니다.
 
-- 진입점은 `app.py`입니다.
-- `--add-data "theme_sv;theme_sv"`는 `ui.palette`를 `sun`으로 쓸 때만 필요합니다. 다른 팔레트는 표준 tkinter만 씁니다. Tcl/Tk는 PyInstaller가 자동으로 포함합니다.
-- `--noconsole`(windowed) exe에는 콘솔이 없으므로, 기동 실패 사유는 메시지 창과 `logs/proxy.log`로 남깁니다.
-- `config.json`은 exe에 넣지 않습니다. exe와 같은 폴더의 `config.json`을 읽고, 없으면 기본값으로 생성합니다. `logs/`, `relationships.d/`, 설정 백업(`backup/`)도 모두 exe 옆 폴더 기준입니다.
-
-배포물은 exe 하나와 그 옆에 둘 `config.json`(그리고 선택적으로 `relationships.d/`)입니다.
+배포물은 `dist\DBridge\` 폴더와 `DBridge.exe` 옆에 둘 `config.json`(그리고 선택적으로 `relationships.d/`)입니다.
 
 ### 3. 네트워크 경계
 
@@ -291,12 +301,12 @@ DB 접근통제 에이전트 등 지정 프로그램이 실행 중일 때만 프
 | 비밀 정보 | `password_env`(환경변수) 권장. `password` 평문도 허용하며 관리 UI 폼에서 입력한 비밀번호는 `config.json`에 평문으로 저장됨. 앱 차원의 암호화는 없음 |
 | DB 쓰기 경로 | 기본 없음. `explain`을 켠 경우에 한해 지정한 전용 PLAN_TABLE에 INSERT 후 자기 행을 DELETE([안전 장치](#안전-장치) 참고) |
 | OS 기능 사용 | Windows: DPI 인식 설정(`shcore`/`user32`), 입력 칸 영문 IME 전환(`imm32`), 클립보드 복사(tkinter) |
-| 권한 | 관리자 권한 불필요. 서비스·레지스트리·자동 시작 등록 없음 |
+| 권한 | 관리자 권한 불필요. 서비스·자동 시작 등록 없음. 설치 파일은 사용자별 제거 항목(HKCU)과 시작 메뉴 바로가기만 등록하고, 포터블 zip과 소스 실행은 레지스트리를 건드리지 않음 |
 
 **업데이트와 삭제**
 
-- 자동 업데이트는 없습니다. 새 버전은 소스(또는 exe)를 교체하고, 같은 폴더의 `config.json`과 `relationships.d/`는 그대로 둡니다.
-- 삭제는 프로그램 폴더(`config.json`, `logs/`, `backup/`, `relationships.d/` 포함)를 지우면 됩니다. MCP 클라이언트에 등록한 항목은 `claude mcp remove dbridge` 등으로 따로 지웁니다.
+- 자동 업데이트는 없습니다. 새 버전은 새 설치 파일을 그대로 덮어 설치하거나, 소스(또는 프로그램 폴더)를 교체합니다. `config.json`, `logs/`, `backup/`, `relationships.d/`는 유지됩니다.
+- 삭제는 Windows 설정의 앱 제거(설치 파일로 설치한 경우)나 프로그램 폴더 삭제로 합니다. 앱 제거는 `config.json`, `logs/`, `backup/`, `relationships.d/`를 남기므로, 이것까지 지우려면 폴더를 삭제하세요. MCP 클라이언트에 등록한 항목은 `claude mcp remove dbridge` 등으로 따로 지웁니다.
 
 ### 6. DBA 검토용 요약
 
